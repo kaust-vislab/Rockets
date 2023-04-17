@@ -22,8 +22,8 @@
 #ifndef ROCKETS_HTTP_REGISTRY_H
 #define ROCKETS_HTTP_REGISTRY_H
 
+#include "response.h"
 #include "types.h"
-
 #include <array>
 #include <map>
 #include <string>
@@ -65,7 +65,7 @@ private:
     FuncMap::const_iterator _find(const Registry::FuncMap& FuncMap,
                                   const std::string& path) const;
 };
-}
-}
+} // namespace http
+} // namespace rockets
 
 #endif

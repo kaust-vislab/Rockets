@@ -36,6 +36,7 @@
 #include <sys/socket.h>
 #endif
 
+#include <stdexcept>
 #include <vector>
 
 namespace rockets
@@ -115,7 +116,7 @@ size_t _getIPAddressLength(ifaddrs* interface)
         throw std::logic_error("No IPv4/6 in your universe?!");
     }
 }
-}
+} // namespace
 
 std::string getIP(const std::string& iface)
 {
@@ -190,4 +191,4 @@ std::string getHostname()
     host[NI_MAXHOST - 1] = '\0';
     return host;
 }
-}
+} // namespace rockets

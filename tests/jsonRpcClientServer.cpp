@@ -19,9 +19,9 @@
 
 #define BOOST_TEST_MODULE rockets_jsonrpc_client_server
 
-#include <boost/test/unit_test.hpp>
-
 #include "json_utils.h"
+#include <boost/test/unit_test.hpp>
+#include <thread>
 
 template <typename T>
 std::string to_json(const T& obj)
@@ -84,7 +84,8 @@ struct MockClientCommunicator
     void sendText(std::string, uintptr_t) {}
     void sendText(std::string message)
     {
-        auto handleResponse = [this](std::string ret) {
+        auto handleResponse = [this](std::string ret)
+        {
             if (!ret.empty())
             {
                 handleMessage(std::move(ret));
@@ -136,15 +137,18 @@ BOOST_AUTO_TEST_CASE(close_client_while_request_pending)
     std::mutex forever;
     std::atomic_bool responseSent{false};
     server.bindAsync("forever",
-                     [&forever,
-                      &responseSent](const jsonrpc::Request&,
-                                     jsonrpc::AsyncResponse response,
-                                     jsonrpc::ProgressUpdateCallback) {
-                         std::thread([&forever, &responseSent, response] {
-                             forever.lock();
-                             response({"false"});
-                             responseSent = true;
-                         }).detach();
+                     [&forever, &responseSent](const jsonrpc::Request&,
+                                               jsonrpc::AsyncResponse response,
+                                               jsonrpc::ProgressUpdateCallback)
+                     {
+                         std::thread(
+                             [&forever, &responseSent, response]
+                             {
+                                 forever.lock();
+                                 response({"false"});
+                                 responseSent = true;
+                             })
+                             .detach();
                          return jsonrpc::CancelRequestCallback();
                      });
     auto request = client->request<bool>("forever");
@@ -176,9 +180,8 @@ struct Fixture
 BOOST_FIXTURE_TEST_CASE(client_notification_received_by_server, Fixture)
 {
     bool received = false;
-    server.connect("test", [&](const jsonrpc::Request& request) {
-        received = (request.message == simpleMessage);
-    });
+    server.connect("test", [&](const jsonrpc::Request& request)
+                   { received = (request.message == simpleMessage); });
     client.notify("test", simpleMessage);
     BOOST_CHECK(received);
 }
@@ -188,14 +191,18 @@ BOOST_FIXTURE_TEST_CASE(client_request_answered_by_server, Fixture)
     bool serverReceivedRequest = false;
     bool clientReceivedReply = false;
     std::string receivedValue;
-    server.bind("test", [&](const jsonrpc::Request& request) {
-        serverReceivedRequest = (request.message == simpleMessage);
-        return jsonrpc::Response{"\"42\""};
-    });
-    client.request("test", simpleMessage, [&](jsonrpc::Response response) {
-        clientReceivedReply = !response.isError();
-        receivedValue = response.result;
-    });
+    server.bind("test",
+                [&](const jsonrpc::Request& request)
+                {
+                    serverReceivedRequest = (request.message == simpleMessage);
+                    return jsonrpc::Response{"\"42\""};
+                });
+    client.request("test", simpleMessage,
+                   [&](jsonrpc::Response response)
+                   {
+                       clientReceivedReply = !response.isError();
+                       receivedValue = response.result;
+                   });
     BOOST_CHECK(serverReceivedRequest);
     BOOST_CHECK(clientReceivedReply);
     BOOST_CHECK_EQUAL(receivedValue, "\"42\"");
@@ -204,10 +211,12 @@ BOOST_FIXTURE_TEST_CASE(client_request_answered_by_server, Fixture)
 BOOST_FIXTURE_TEST_CASE(client_request_answered_by_server_using_future, Fixture)
 {
     bool serverReceivedRequest = false;
-    server.bind("test", [&](const jsonrpc::Request&& request) {
-        serverReceivedRequest = (request.message == simpleMessage);
-        return jsonrpc::Response{"\"42\""};
-    });
+    server.bind("test",
+                [&](const jsonrpc::Request&& request)
+                {
+                    serverReceivedRequest = (request.message == simpleMessage);
+                    return jsonrpc::Response{"\"42\""};
+                });
     auto request = client.request("test", simpleMessage);
     BOOST_CHECK(serverReceivedRequest);
     BOOST_REQUIRE(request.is_ready());
@@ -221,10 +230,13 @@ BOOST_FIXTURE_TEST_CASE(client_templated_request_answered_by_server, Fixture)
 {
     bool serverReceivedRequest = false;
     const std::string message{"give me 42"};
-    server.bind<std::string, int>("test", [&](const std::string& request) {
-        serverReceivedRequest = (request == message);
-        return 42;
-    });
+    server.bind<std::string, int>("test",
+                                  [&](const std::string& request)
+                                  {
+                                      serverReceivedRequest =
+                                          (request == message);
+                                      return 42;
+                                  });
     auto request = client.request<std::string, int>("test", message);
     BOOST_CHECK(serverReceivedRequest);
     BOOST_REQUIRE(request.is_ready());
@@ -242,10 +254,12 @@ BOOST_FIXTURE_TEST_CASE(client_templated_request_with_no_parameter, Fixture)
 BOOST_FIXTURE_TEST_CASE(client_notification_generates_no_response, Fixture)
 {
     bool serverReceivedRequest = false;
-    server.bind("test", [&](const jsonrpc::Request&& request) {
-        serverReceivedRequest = (request.message == simpleMessage);
-        return jsonrpc::Response{"42"};
-    });
+    server.bind("test",
+                [&](const jsonrpc::Request&& request)
+                {
+                    serverReceivedRequest = (request.message == simpleMessage);
+                    return jsonrpc::Response{"42"};
+                });
     client.notify("test", simpleMessage);
     BOOST_CHECK(serverReceivedRequest);
     BOOST_CHECK(!clientCommunicator.receivedMessage);
@@ -254,9 +268,8 @@ BOOST_FIXTURE_TEST_CASE(client_notification_generates_no_response, Fixture)
 BOOST_FIXTURE_TEST_CASE(server_notification_received_by_client, Fixture)
 {
     bool received = false;
-    client.connect("test", [&](const jsonrpc::Request&& request) {
-        received = (request.message == simpleMessage);
-    });
+    client.connect("test", [&](const jsonrpc::Request&& request)
+                   { received = (request.message == simpleMessage); });
     server.notify("test", simpleMessage);
     BOOST_CHECK(received);
 }
@@ -268,9 +281,11 @@ BOOST_FIXTURE_TEST_CASE(client_cancel_request, Fixture)
     std::mutex forever;
     server.bindAsync("forever",
                      [&forever](const jsonrpc::Request&, jsonrpc::AsyncResponse,
-                                jsonrpc::ProgressUpdateCallback) {
+                                jsonrpc::ProgressUpdateCallback)
+                     {
                          std::thread([&]() { forever.lock(); }).detach();
-                         return [&](jsonrpc::VoidCallback done) {
+                         return [&](jsonrpc::VoidCallback done)
+                         {
                              forever.unlock();
                              done();
                          };
